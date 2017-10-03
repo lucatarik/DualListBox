@@ -22,20 +22,22 @@
     $.fn.DualListBox = function(paramOptions, selected) {
         return this.each(function () {
             var defaults = {
-                element:    $(this).context,    // Select element which creates this dual list box.
-                uri:        'local.json',       // JSON file that can be opened for the data.
-                value:      'id',               // Value that is assigned to the value field in the option.
-                text:       'name',             // Text that is assigned to the option field.
-                title:      'Example',          // Title of the dual list box.
-                json:       true,               // Whether to retrieve the data through JSON.
-                timeout:    500,                // Timeout for when a filter search is started.
-                horizontal: false,              // Whether to layout the dual list box as horizontal or vertical.
-                textLength: 45,                 // Maximum text length that is displayed in the select.
-                moveAllBtn: true,               // Whether the append all button is available.
-                maxAllBtn:  500,                // Maximum size of list in which the all button works without warning. See below.
+                element:    $(this).context,       // Select element which creates this dual list box.
+                uri:        'local.json',          // JSON file that can be opened for the data.
+                value:      'id',                  // Value that is assigned to the value field in the option.
+                text:       'name',                // Text that is assigned to the option field.
+                title:      'Example',             // Title of the dual list box.
+                json:       true,                  // Whether to retrieve the data through JSON.
+                timeout:    500,                   // Timeout for when a filter search is started.
+                horizontal: false,                 // Whether to layout the dual list box as horizontal or vertical.
+                textLength: 45,                    // Maximum text length that is displayed in the select.
+                moveAllBtn: true,                  // Whether the append all button is available.
+                maxAllBtn:  500,                   // Maximum size of list in which the all button works without warning. See below.
                 selectClass:'form-control',
                 warning:    'Are you sure you want to move this many items? Doing so can cause your browser to become unresponsive.',
-                sort:       true
+                sort:       true,                   // Allow DualListBox to sort select element
+                onMoveLeft: function(evt,items){},  // Callback called when items moved in the left select
+                onMoveRight: function(evt,items){}  // Callback called when items moved in the right select
             };
 
             var htmlOptions = {
@@ -63,7 +65,7 @@
             options['parentElement'] = '#' + options.parent;
 
             selected = $.extend([{}], selected);
-
+            
             if (options.json) {
                 addElementsViaJSON(options, selected);
             } else {
@@ -110,16 +112,22 @@
         var unselected = $(options.parentElement + ' .unselected');
         var selected = $(options.parentElement + ' .selected');
 
-        $(options.parentElement).find('button').bind('click', function() {
+        $(options.parentElement)
+        .unbind("onMoveLeft, onMoveRight")
+        .bind("onMoveLeft",options.onMoveLeft)
+        .bind("onMoveRight",options.onMoveRight).find('button').bind('click', function() {
             switch ($(this).data('type')) {
                 case 'str': /* Selected to the right. */
-                    unselected.find('option:selected').appendTo(selected);
+                    var slctdElements = unselected.find('option:selected').appendTo(selected);
+                    $(options.parentElement).trigger("onMoveRight",[slctdElements]);
                     $(this).prop('disabled', true);
                     break;
                 case 'atr': /* All to the right. */
                     if (unselected.find('option').length >= options.maxAllBtn && confirm(options.warning) ||
                         unselected.find('option').length < options.maxAllBtn) {
-                        unselected.find('option').each(function () {
+                        var slctdElements = unselected.find('option').filter(":visible");
+                        $(options.parentElement).trigger("onMoveRight",[slctdElements]);
+                        slctdElements.each(function () {
                             if ($(this).isVisible()) {
                                 $(this).remove().appendTo(selected);
                             }
@@ -127,13 +135,16 @@
                     }
                     break;
                 case 'stl': /* Selected to the left. */
-                    selected.find('option:selected').remove().appendTo(unselected);
+                    var slctdElements = selected.find('option:selected').remove().appendTo(unselected);
+                    $(options.parentElement).trigger("onMoveLeft",[slctdElements]);
                     $(this).prop('disabled', true);
                     break;
                 case 'atl': /* All to the left. */
                     if (selected.find('option').length >= options.maxAllBtn && confirm(options.warning) ||
                         selected.find('option').length < options.maxAllBtn) {
-                        selected.find('option').each(function () {
+                        var slctdElements = selected.find('option').filter(":visible");
+                        $(options.parentElement).trigger("onMoveLeft",[slctdElements]);
+                        slctdElements.each(function () {
                             if ($(this).isVisible()) {
                                 $(this).remove().appendTo(unselected);
                             }
@@ -143,8 +154,8 @@
                 default: break;
             }
 
-            unselected.filterByText($(options.parentElement + ' .filter-unselected'), options.timeout, options.parentElement).scrollTop(0).sortOptions();
-            selected.filterByText($(options.parentElement + ' .filter-selected'), options.timeout, options.parentElement).scrollTop(0).sortOptions();
+            unselected.filterByText($(options.parentElement + ' .filter-unselected'), options.timeout, options.parentElement).scrollTop(0).filter(function(){return options.sort}).sortOptions();
+            selected.filterByText($(options.parentElement + ' .filter-selected'), options.timeout, options.parentElement).scrollTop(0).filter(function(){return options.sort}).sortOptions();
 
             handleMovement(options);
         });
@@ -159,8 +170,8 @@
             }
         });
 
-        selected.filterByText($(options.parentElement + ' .filter-selected'), options.timeout, options.parentElement).scrollTop(0).sortOptions();
-        unselected.filterByText($(options.parentElement + ' .filter-unselected'), options.timeout, options.parentElement).scrollTop(0).sortOptions();
+        selected.filterByText($(options.parentElement + ' .filter-selected'), options.timeout, options.parentElement).scrollTop(0).filter(function(){return options.sort}).sortOptions();
+        unselected.filterByText($(options.parentElement + ' .filter-unselected'), options.timeout, options.parentElement).scrollTop(0).filter(function(){return options.sort}).sortOptions();
     }
 
     /** Constructs the jQuery plugin after the elements have been retrieved. */
@@ -334,10 +345,6 @@
 
     /** Sorts options in a select / list box. */
     $.fn.sortOptions = function() {
-        if (options.sort === false)
-        {
-            return this;
-        }
         return this.each(function() {
             $(this).append($(this).find('option').remove().sort(function(a, b) {
                 var at = $(a).text(), bt = $(b).text();

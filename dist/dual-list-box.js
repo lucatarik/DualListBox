@@ -34,7 +34,8 @@
                 moveAllBtn: true,               // Whether the append all button is available.
                 maxAllBtn:  500,                // Maximum size of list in which the all button works without warning. See below.
                 selectClass:'form-control',
-                warning:    'Are you sure you want to move this many items? Doing so can cause your browser to become unresponsive.'
+                warning:    'Are you sure you want to move this many items? Doing so can cause your browser to become unresponsive.',
+                sort:       true
             };
 
             var htmlOptions = {
@@ -333,6 +334,10 @@
 
     /** Sorts options in a select / list box. */
     $.fn.sortOptions = function() {
+        if (options.sort === false)
+        {
+            return this;
+        }
         return this.each(function() {
             $(this).append($(this).find('option').remove().sort(function(a, b) {
                 var at = $(a).text(), bt = $(b).text();
